@@ -1,0 +1,629 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stock Portfolio Tracker</title>
+    <!-- Tailwind CSS for styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Chart.js for graphs -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Google Fonts: Inter -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Sarabun:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide-react@0.292.0/dist/lucide-react.js"></script>
+    <style>
+        body {
+            font-family: 'Sarabun', 'Inter', sans-serif;
+            background-color: #f0f2f5;
+        }
+        /* Custom styles for transitions and glassmorphism effect */
+        .glass-card {
+            background: rgba(255, 255, 255, 0.6);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        .table-row-positive { background-color: rgba(74, 222, 128, 0.2); }
+        .table-row-negative { background-color: rgba(248, 113, 113, 0.2); }
+        .table-row-neutral { background-color: rgba(255, 255, 255, 0.6); }
+        .tab-active {
+            border-bottom: 2px solid #3b82f6;
+            color: #3b82f6;
+            font-weight: 600;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex items-center justify-center">
+
+    <!-- Auth Container -->
+    <div id="auth-container" class="w-full max-w-md p-8 space-y-6 glass-card rounded-2xl shadow-xl">
+        <div>
+            <h2 class="mt-6 text-center text-3xl font-bold tracking-tight text-gray-900">
+                เข้าสู่ระบบพอร์ตหุ้น
+            </h2>
+        </div>
+        <form id="login-form" class="mt-8 space-y-6">
+            <div class="rounded-md shadow-sm -space-y-px">
+                <div>
+                    <input id="email" name="email" type="email" autocomplete="email" required class="relative block w-full appearance-none rounded-t-md border border-gray-300 px-3 py-2 text-gray-900 placeholder-gray-500 focus:z-10 focus:border-blue-500 focus:outline-none focus:ring-blue-500 sm:text-sm" placeholder="อีเมล">
+                </div>
+                <div>
+                    <input id="password" name="password" type="password" autocomplete="current-password" required minlength="8" class="relative block w-full appearance-none rounded-b-md border border-gray-300 px-3 py-2 text-gray-900 placeholder-gray-500 focus:z-10 focus:border-blue-500 focus:outline-none focus:ring-blue-500 sm:text-sm" placeholder="รหัสผ่าน (อย่างน้อย 8 ตัวอักษร)">
+                </div>
+            </div>
+            <div>
+                <button type="submit" id="login-button" class="group relative flex w-full justify-center rounded-md border border-transparent bg-blue-600 py-2 px-4 text-sm font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">
+                    เข้าสู่ระบบ
+                </button>
+            </div>
+        </form>
+         <div class="text-sm text-center">
+            <p id="auth-toggle" class="font-medium text-blue-600 hover:text-blue-500 cursor-pointer">
+                ยังไม่มีบัญชี? สมัครสมาชิก
+            </p>
+        </div>
+        <div id="auth-error" class="text-red-500 text-sm text-center mt-2"></div>
+    </div>
+
+    <!-- App Container -->
+    <div id="app-container" class="hidden w-full h-screen p-4 md:p-6 lg:p-8 flex flex-col">
+        <!-- Header -->
+        <header class="flex justify-between items-center mb-4">
+            <div>
+                <h1 class="text-2xl md:text-3xl font-bold text-gray-800">พอร์ตหุ้นของฉัน</h1>
+                <p id="last-updated" class="text-xs text-gray-500 mt-1"></p>
+            </div>
+            <div class="flex items-center space-x-4">
+                 <div id="tabs" class="flex items-center space-x-4 md:space-x-8 border-b">
+                    <button data-tab="portfolio" class="py-2 px-1 text-sm md:text-base text-gray-500 hover:text-blue-600 tab-active">ตารางบัญชี</button>
+                    <button data-tab="graph" class="py-2 px-1 text-sm md:text-base text-gray-500 hover:text-blue-600">กราฟราคาหุ้น</button>
+                </div>
+                <button id="logout-button" class="rounded-md bg-red-500 px-4 py-2 text-sm font-medium text-white hover:bg-red-600 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2">
+                    ออกจากระบบ
+                </button>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="flex-grow overflow-y-auto">
+            <!-- Portfolio View -->
+            <div id="portfolio-view">
+                <!-- Add Stock Form -->
+                <div class="p-4 md:p-6 mb-6 glass-card rounded-2xl shadow-lg">
+                    <h2 class="text-xl font-semibold mb-4 text-gray-700">เพิ่มหุ้นในพอร์ต</h2>
+                    <form id="add-stock-form" class="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
+                        <div class="md:col-span-2">
+                            <label for="stock-symbol" class="block text-sm font-medium text-gray-700">ชื่อหุ้น (เช่น BBL, PTT)</label>
+                            <input type="text" id="stock-symbol" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm" placeholder="BBL">
+                        </div>
+                        <div>
+                            <label for="stock-quantity" class="block text-sm font-medium text-gray-700">จำนวนหน่วย</label>
+                            <input type="number" id="stock-quantity" min="1" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm" placeholder="100">
+                        </div>
+                        <button type="submit" class="w-full justify-center rounded-md border border-transparent bg-blue-600 py-2 px-4 text-sm font-medium text-white shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">เพิ่มหุ้น</button>
+                    </form>
+                    <div id="form-message" class="text-sm mt-2"></div>
+                </div>
+
+                <!-- Portfolio Table -->
+                <div class="overflow-x-auto glass-card rounded-2xl shadow-lg">
+                    <table class="min-w-full divide-y divide-gray-200">
+                        <thead class="bg-gray-50 bg-opacity-50">
+                            <tr>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">วันที่ซื้อ</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ชื่อหุ้น</th>
+                                <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">ราคาซื้อ</th>
+                                <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">จำนวน</th>
+                                <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">ราคารวม (ซื้อ)</th>
+                                <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">ราคาปัจจุบัน</th>
+                                <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">มูลค่าปัจจุบัน</th>
+                                <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">กำไร/ขาดทุน</th>
+                                <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">จัดการ</th>
+                            </tr>
+                        </thead>
+                        <tbody id="portfolio-body" class="divide-y divide-gray-200">
+                           <!-- Rows will be injected by JS -->
+                           <tr id="loading-row">
+                                <td colspan="9" class="text-center p-8 text-gray-500">กำลังโหลดข้อมูล...</td>
+                           </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Graph View -->
+            <div id="graph-view" class="hidden">
+                 <div class="p-4 md:p-6 mb-6 glass-card rounded-2xl shadow-lg">
+                    <h2 class="text-xl font-semibold mb-4 text-gray-700">กราฟราคาหุ้นรายสัปดาห์</h2>
+                    <div>
+                        <label for="graph-stock-select" class="block text-sm font-medium text-gray-700">เลือกหุ้นที่จะดูกราฟ</label>
+                        <select id="graph-stock-select" class="mt-1 block w-full md:w-1/4 rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm">
+                            <!-- Options will be injected by JS -->
+                        </select>
+                    </div>
+                 </div>
+                 <div class="p-4 md:p-6 glass-card rounded-2xl shadow-lg h-[60vh]">
+                    <canvas id="stock-chart"></canvas>
+                    <div id="no-graph-data" class="text-center p-8 text-gray-500 hidden">กรุณาเพิ่มหุ้นในพอร์ตก่อน</div>
+                 </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Firebase SDK -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { 
+            getAuth, 
+            createUserWithEmailAndPassword, 
+            signInWithEmailAndPassword, 
+            onAuthStateChanged, 
+            signOut,
+            signInAnonymously,
+            signInWithCustomToken
+        } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { 
+            getFirestore,
+            collection,
+            doc,
+            addDoc,
+            onSnapshot,
+            deleteDoc,
+            query
+        } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // --- GLOBAL CONFIG (Provided by the environment) ---
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+        const firebaseConfig = {
+  		apiKey: "AIzaSyAuaO_sTQp8ObVDjr2gQZDvjAjuDJQcOcM",
+  		authDomain: "index-b1ade.firebaseapp.com",
+  		projectId: "index-b1ade",
+  		storageBucket: "index-b1ade.firebasestorage.app",
+  		messagingSenderId: "275289631988",
+  		appId: "1:275289631988:web:cf5820533ea1dc3d8002a1",
+  		measurementId: "G-GSHPSHY0V1"
+		};
+        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : undefined;
+
+        // --- Firebase Initialization ---
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+        
+        // --- State Management ---
+        let portfolio = [];
+        let stockPrices = {}; // Cache for current prices
+        let stockHistory = {}; // Cache for historical data
+        let currentUserId = null;
+        let unsubscribePortfolio = null; // To detach listener on logout
+        let chartInstance = null;
+        let isRegistering = false;
+        
+        // --- UI Elements ---
+        const authContainer = document.getElementById('auth-container');
+        const appContainer = document.getElementById('app-container');
+        const portfolioBody = document.getElementById('portfolio-body');
+        const loginForm = document.getElementById('login-form');
+        const addStockForm = document.getElementById('add-stock-form');
+        const logoutButton = document.getElementById('logout-button');
+        const tabs = document.getElementById('tabs');
+        const portfolioView = document.getElementById('portfolio-view');
+        const graphView = document.getElementById('graph-view');
+        const graphStockSelect = document.getElementById('graph-stock-select');
+        const stockChartCanvas = document.getElementById('stock-chart');
+        const noGraphDataMessage = document.getElementById('no-graph-data');
+        const authToggle = document.getElementById('auth-toggle');
+        const authError = document.getElementById('auth-error');
+        const formMessage = document.getElementById('form-message');
+        const lastUpdatedElement = document.getElementById('last-updated');
+
+        // --- MOCK STOCK API & VALIDATION ---
+        const validStockSymbols = ['PTT', 'AOT', 'SCC', 'CPALL', 'KBANK', 'BBL', 'ADVANC', 'GULF', 'SCB', 'BDMS', 'CPN', 'DELTA', 'EA', 'INTUCH', 'MINT'];
+
+        function mockFetchStockData(symbol) {
+            return new Promise((resolve, reject) => {
+                // Check if the symbol is valid before fetching
+                if (!validStockSymbols.includes(symbol.toUpperCase())) {
+                    return reject(new Error(`Invalid stock symbol: ${symbol}`));
+                }
+
+                // Initialize if new
+                if (!stockPrices[symbol]) {
+                    stockPrices[symbol] = Math.random() * 200 + 10; // Initial price
+                } else {
+                    // Fluctuate price
+                    const change = (Math.random() - 0.5) * 2;
+                    stockPrices[symbol] = Math.max(1, stockPrices[symbol] + change);
+                }
+
+                // Generate mock history every time to ensure it's always the last 7 days
+                const freshHistory = [];
+                let lastClose = stockPrices[symbol];
+                for (let i = 0; i < 7; i++) {
+                    const open = lastClose * (1 + (Math.random() - 0.5) * 0.05);
+                    const close = open * (1 + (Math.random() - 0.5) * 0.05);
+                    freshHistory.unshift({
+                        date: new Date(Date.now() - i * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+                        open: open.toFixed(2),
+                        close: close.toFixed(2)
+                    });
+                    lastClose = close;
+                }
+                stockHistory[symbol] = freshHistory;
+
+
+                setTimeout(() => {
+                    resolve({
+                        price: stockPrices[symbol],
+                        history: stockHistory[symbol]
+                    });
+                }, 200 + Math.random() * 300);
+            });
+        }
+        
+        // --- AUTHENTICATION LOGIC ---
+        function toggleAuthMode() {
+            isRegistering = !isRegistering;
+            loginForm.querySelector('button').textContent = isRegistering ? 'สมัครสมาชิก' : 'เข้าสู่ระบบ';
+            authToggle.textContent = isRegistering ? 'มีบัญชีอยู่แล้ว? เข้าสู่ระบบ' : 'ยังไม่มีบัญชี? สมัครสมาชิก';
+            authError.textContent = '';
+        }
+
+        authToggle.addEventListener('click', toggleAuthMode);
+
+        loginForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const email = e.target.email.value;
+            const password = e.target.password.value;
+            authError.textContent = '';
+
+            try {
+                if(isRegistering) {
+                    await createUserWithEmailAndPassword(auth, email, password);
+                } else {
+                    await signInWithEmailAndPassword(auth, email, password);
+                }
+            } catch (error) {
+                console.error("Auth Error:", error);
+                authError.textContent = "อีเมลหรือรหัสผ่านไม่ถูกต้อง";
+            }
+        });
+
+        logoutButton.addEventListener('click', () => {
+            signOut(auth);
+        });
+
+        onAuthStateChanged(auth, user => {
+            if (user) {
+                // User is signed in.
+                currentUserId = user.uid;
+                authContainer.classList.add('hidden');
+                appContainer.classList.remove('hidden');
+                loadPortfolio();
+            } else {
+                // User is signed out.
+                currentUserId = null;
+                if (unsubscribePortfolio) unsubscribePortfolio();
+                portfolio = [];
+                stockPrices = {};
+                authContainer.classList.remove('hidden');
+                appContainer.classList.add('hidden');
+            }
+        });
+
+        // Initial sign-in attempt
+        const initialAuth = async () => {
+            try {
+                if (initialAuthToken) {
+                    await signInWithCustomToken(auth, initialAuthToken);
+                } else {
+                    // Fallback for local testing if no token is provided
+                    await signInAnonymously(auth); 
+                }
+            } catch (error) {
+                console.error("Initial authentication failed:", error);
+            }
+        };
+        initialAuth();
+
+
+        // --- FIRESTORE & DATA LOGIC ---
+        function loadPortfolio() {
+            if (!currentUserId) return;
+            const stocksCol = collection(db, 'artifacts', appId, 'users', currentUserId, 'stocks');
+            const q = query(stocksCol);
+            
+            // Use onSnapshot for real-time updates from Firestore
+            unsubscribePortfolio = onSnapshot(q, (snapshot) => {
+                const loadingRow = document.getElementById('loading-row');
+                if (loadingRow) {
+                    loadingRow.classList.add('hidden');
+                }
+                portfolio = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                
+                // Sort by purchase date, newest first
+                portfolio.sort((a, b) => {
+                    const dateA = a.purchaseDate?.toDate() || 0;
+                    const dateB = b.purchaseDate?.toDate() || 0;
+                    return dateB - dateA;
+                });
+
+                updateGraphStockOptions();
+                // Fetch initial prices and render everything
+                fetchAllPricesAndRender();
+            });
+        }
+        
+        addStockForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const symbolInput = document.getElementById('stock-symbol');
+            const quantityInput = document.getElementById('stock-quantity');
+            
+            const symbol = symbolInput.value.toUpperCase().trim();
+            const quantity = parseInt(quantityInput.value, 10);
+            
+            if (!symbol || !quantity || quantity <= 0) {
+                formMessage.textContent = "กรุณากรอกข้อมูลให้ถูกต้อง";
+                formMessage.className = "text-sm mt-2 text-red-500";
+                return;
+            }
+
+            // --- SYMBOL VALIDATION ---
+            if (!validStockSymbols.includes(symbol)) {
+                formMessage.textContent = `ไม่พบชื่อหุ้น "${symbol}" ในระบบ กรุณาตรวจสอบอีกครั้ง`;
+                formMessage.className = "text-sm mt-2 text-red-500";
+                return;
+            }
+            
+            formMessage.textContent = `กำลังดึงราคาหุ้น ${symbol}...`;
+            formMessage.className = "text-sm mt-2 text-blue-500";
+            
+            try {
+                const data = await mockFetchStockData(symbol);
+                const purchasePrice = data.price;
+                const newStock = {
+                    symbol,
+                    quantity,
+                    purchasePrice,
+                    purchaseDate: new Date(),
+                };
+
+                const stocksCol = collection(db, 'artifacts', appId, 'users', currentUserId, 'stocks');
+                await addDoc(stocksCol, newStock);
+
+                formMessage.textContent = `เพิ่มหุ้น ${symbol} สำเร็จ!`;
+                formMessage.className = "text-sm mt-2 text-green-500";
+                symbolInput.value = '';
+                quantityInput.value = '';
+            } catch (error) {
+                console.error("Error adding stock:", error);
+                formMessage.textContent = `ไม่สามารถเพิ่มหุ้น ${symbol} ได้`;
+                formMessage.className = "text-sm mt-2 text-red-500";
+            }
+        });
+
+        async function deleteStock(stockId) {
+            try {
+                const stockDocRef = doc(db, 'artifacts', appId, 'users', currentUserId, 'stocks', stockId);
+                await deleteDoc(stockDocRef);
+            } catch(error) {
+                console.error("Error deleting stock: ", error);
+            }
+        }
+        
+        // Make deleteStock accessible from HTML
+        window.deleteStock = deleteStock;
+
+        // --- REAL-TIME PRICE UPDATES & RENDERING ---
+        async function fetchAllPricesAndRender() {
+            if (portfolio.length > 0) {
+                const updatePromises = portfolio.map(stock => mockFetchStockData(stock.symbol));
+                
+                const results = await Promise.all(updatePromises);
+                
+                results.forEach((data, index) => {
+                    const symbol = portfolio[index].symbol;
+                    stockPrices[symbol] = data.price;
+                });
+
+                renderPortfolioTable();
+                
+                const now = new Date();
+                lastUpdatedElement.textContent = `อัปเดตล่าสุด: ${now.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}`;
+            } else {
+                renderPortfolioTable(); // Render empty message
+                lastUpdatedElement.textContent = 'เพิ่มหุ้นในพอร์ตเพื่อเริ่มการอัปเดต';
+            }
+        }
+
+        // Poll for price updates every 5 seconds if the page is visible
+        setInterval(() => {
+            if (document.hidden === false) { 
+                 fetchAllPricesAndRender();
+            }
+        }, 5000);
+
+        function renderPortfolioTable() {
+            if (!portfolio.length) {
+                portfolioBody.innerHTML = `<tr><td colspan="9" class="text-center p-8 text-gray-500">ยังไม่มีหุ้นในพอร์ต, เพิ่มหุ้นแรกของคุณด้านบน</td></tr>`;
+                return;
+            }
+
+            let tableHTML = '';
+            portfolio.forEach(stock => {
+                const currentPrice = stockPrices[stock.symbol] || stock.purchasePrice;
+                const totalCost = stock.purchasePrice * stock.quantity;
+                const currentValue = currentPrice * stock.quantity;
+                const netChange = currentValue - totalCost;
+
+                let rowClass = 'table-row-neutral';
+                if (netChange > 0) rowClass = 'table-row-positive';
+                if (netChange < 0) rowClass = 'table-row-negative';
+
+                let purchaseDateStr = 'N/A';
+                if (stock.purchaseDate && typeof stock.purchaseDate.toDate === 'function') {
+                    const date = stock.purchaseDate.toDate();
+                    purchaseDateStr = date.toLocaleString('th-TH', {
+                        year: 'numeric',
+                        month: '2-digit',
+                        day: '2-digit',
+                        hour: '2-digit',
+                        minute: '2-digit'
+                    }).replace(',', '');
+                }
+
+                tableHTML += `
+                    <tr class="${rowClass} transition-colors duration-500">
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700">${purchaseDateStr}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">${stock.symbol}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700 text-right">${stock.purchasePrice.toFixed(2)}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700 text-right">${stock.quantity.toLocaleString()}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700 text-right">${totalCost.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 font-semibold text-right">${currentPrice.toFixed(2)}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 font-semibold text-right">${currentValue.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm font-bold ${netChange > 0 ? 'text-green-600' : (netChange < 0 ? 'text-red-600' : 'text-gray-800')} text-right">${netChange.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-center">
+                            <button onclick="window.deleteStock('${stock.id}')" class="text-red-500 hover:text-red-700">ลบ</button>
+                        </td>
+                    </tr>
+                `;
+            });
+            portfolioBody.innerHTML = tableHTML;
+        }
+
+        // --- TAB & GRAPH LOGIC ---
+        tabs.addEventListener('click', (e) => {
+            if (e.target.tagName === 'BUTTON') {
+                const tab = e.target.dataset.tab;
+                
+                // Update views
+                portfolioView.style.display = tab === 'portfolio' ? 'block' : 'none';
+                graphView.style.display = tab === 'graph' ? 'block' : 'none';
+
+                // Update active tab style
+                tabs.querySelectorAll('button').forEach(b => b.classList.remove('tab-active'));
+                e.target.classList.add('tab-active');
+
+                // If switching to graph tab, render it
+                if (tab === 'graph' && portfolio.length > 0) {
+                    renderGraph(graphStockSelect.value);
+                }
+            }
+        });
+        
+        function updateGraphStockOptions() {
+            if (portfolio.length === 0) {
+                graphStockSelect.innerHTML = '';
+                noGraphDataMessage.style.display = 'block';
+                stockChartCanvas.style.display = 'none';
+                return;
+            }
+
+            noGraphDataMessage.style.display = 'none';
+            stockChartCanvas.style.display = 'block';
+
+            const selectedValue = graphStockSelect.value;
+            // Create a unique list of symbols for the dropdown
+            const uniqueSymbols = [...new Set(portfolio.map(s => s.symbol))];
+            graphStockSelect.innerHTML = uniqueSymbols.map(symbol => `<option value="${symbol}" ${symbol === selectedValue ? 'selected' : ''}>${symbol}</option>`).join('');
+
+            // Automatically render graph for the first stock or the previously selected one
+            if (graphStockSelect.value) {
+                renderGraph(graphStockSelect.value);
+            }
+        }
+        
+        graphStockSelect.addEventListener('change', (e) => {
+            renderGraph(e.target.value);
+        });
+
+        async function renderGraph(symbol) {
+            if (!symbol) return;
+            const data = await mockFetchStockData(symbol);
+            const history = data.history;
+            
+            const labels = history.map(d => d.date);
+            const openPrices = history.map(d => parseFloat(d.open));
+            const closePrices = history.map(d => parseFloat(d.close));
+            
+            const barData = history.map(d => [parseFloat(d.open), parseFloat(d.close)]);
+            const barColors = history.map(d => parseFloat(d.close) >= parseFloat(d.open) ? 'rgba(74, 222, 128, 0.7)' : 'rgba(248, 113, 113, 0.7)');
+
+            if (chartInstance) {
+                chartInstance.destroy();
+            }
+            
+            const ctx = stockChartCanvas.getContext('2d');
+            chartInstance = new Chart(ctx, {
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        type: 'bar',
+                        label: 'ช่วงราคาเปิด-ปิด',
+                        data: barData,
+                        backgroundColor: barColors,
+                        borderColor: history.map(d => parseFloat(d.close) >= parseFloat(d.open) ? 'rgba(34, 197, 94, 1)' : 'rgba(239, 68, 68, 1)'),
+                        borderWidth: 1,
+                        barPercentage: 0.5,
+                    }, {
+                        type: 'line',
+                        label: 'ราคาปิด',
+                        data: closePrices,
+                        borderColor: 'rgba(37, 99, 235, 1)',
+                        backgroundColor: 'rgba(37, 99, 235, 0.1)',
+                        fill: false,
+                        tension: 0.2,
+                        pointBackgroundColor: 'rgba(37, 99, 235, 1)',
+                        pointRadius: 4,
+                        pointHoverRadius: 6
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: false,
+                            ticks: {
+                                callback: function(value, index, values) {
+                                    return '฿' + value.toFixed(2);
+                                }
+                            }
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            display: true
+                        },
+                        title: {
+                            display: true,
+                            text: `ราคาหุ้น ${symbol} ในสัปดาห์ที่ผ่านมา`,
+                            font: { size: 16 }
+                        },
+                        tooltip: {
+                             callbacks: {
+                                title: function(tooltipItems) {
+                                    return `วันที่ ${tooltipItems[0].label}`;
+                                },
+                                label: function(context) {
+                                    const index = context.dataIndex;
+                                    const openPrice = openPrices[index];
+                                    const closePrice = closePrices[index];
+                                    
+                                    const openLabel = ` ราคาเปิด: ${new Intl.NumberFormat('th-TH', { style: 'currency', currency: 'THB' }).format(openPrice)}`;
+                                    const closeLabel = `ราคาปิด: ${new Intl.NumberFormat('th-TH', { style: 'currency', currency: 'THB' }).format(closePrice)}`;
+
+                                    return [openLabel, closeLabel];
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+    </script>
+</body>
+</html>
+
