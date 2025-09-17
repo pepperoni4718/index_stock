@@ -1,0 +1,607 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Portfolio Management App</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        /* --- General Styles --- */
+        body {
+            font-family: 'Sarabun', sans-serif; /* ใช้ฟอนต์ที่รองรับภาษาไทย */
+            background-color: #f0f2f5;
+            color: #333;
+            margin: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+        }
+
+        .container {
+            width: 95%;
+            max-width: 1200px;
+            background-color: white;
+            border-radius: 10px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+        }
+
+        /* --- Login Screen --- */
+        #login-screen {
+            padding: 40px;
+            text-align: center;
+        }
+        #login-screen h1 {
+            margin-bottom: 20px;
+        }
+        #login-screen input {
+            display: block;
+            width: 80%;
+            max-width: 300px;
+            margin: 15px auto;
+            padding: 12px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+        }
+        #login-screen button {
+            padding: 12px 30px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: background-color 0.3s;
+        }
+        #login-screen button:hover {
+            background-color: #0056b3;
+        }
+
+        /* --- App Screen --- */
+        #app-screen {
+            display: none; /* ซ่อนไว้ตอนแรก */
+        }
+
+        /* --- Tabs --- */
+        .tab-buttons {
+            display: flex;
+            background-color: #f8f9fa;
+            border-bottom: 1px solid #dee2e6;
+        }
+        .tab-button {
+            padding: 15px 25px;
+            cursor: pointer;
+            border: none;
+            background-color: transparent;
+            font-size: 16px;
+            font-weight: bold;
+            color: #495057;
+        }
+        .tab-button.active {
+            color: #007bff;
+            border-bottom: 3px solid #007bff;
+        }
+        .tab-content {
+            padding: 20px;
+        }
+        .tab-pane {
+            display: none; /* ซ่อนเนื้อหาแท็บทั้งหมด */
+        }
+        .tab-pane.active {
+            display: block; /* แสดงเฉพาะแท็บที่ active */
+        }
+
+        /* --- Portfolio Tab --- */
+        .add-stock-form {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+        .add-stock-form input {
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            flex-grow: 1;
+        }
+        .add-stock-form button {
+            padding: 10px 20px;
+            background-color: #28a745;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+
+        .portfolio-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        .portfolio-table th, .portfolio-table td {
+            border: 1px solid #ddd;
+            padding: 12px;
+            text-align: right;
+        }
+        .portfolio-table th {
+            background-color: #f2f2f2;
+            text-align: center;
+            font-weight: bold;
+        }
+        .portfolio-table td:first-child, .portfolio-table th:first-child {
+            text-align: left;
+        }
+        .profit {
+            color: #28a745;
+            font-weight: bold;
+        }
+        .loss {
+            color: #dc3545;
+            font-weight: bold;
+        }
+        .portfolio-table tfoot td {
+            font-weight: bold;
+            font-size: 1.1em;
+            background-color: #e9ecef;
+        }
+
+        /* --- Graph Tab --- */
+        #graph-controls {
+            margin-bottom: 20px;
+        }
+        #graph-controls label {
+            margin-right: 10px;
+            font-weight: bold;
+        }
+        #stock-selector {
+            padding: 8px;
+            border-radius: 5px;
+        }
+        #chart-container {
+            max-height: 500px;
+        }
+        .no-data {
+            text-align: center;
+            font-size: 1.2em;
+            color: #888;
+            padding: 50px;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <div id="login-screen">
+            <h1>Stock Portfolio App</h1>
+            <form id="login-form">
+                <input type="text" id="username" placeholder="Username" required>
+                <input type="password" id="password" placeholder="Password" required>
+                <button type="submit">เข้าสู่ระบบ</button>
+            </form>
+        </div>
+
+        <div id="app-screen">
+            <div class="tab-buttons">
+                <button class="tab-button active" onclick="showTab('portfolio')">พอร์ตโฟลิโอ</button>
+                <button class="tab-button" onclick="showTab('graph')">กราฟ</button>
+            </div>
+
+            <div class="tab-content">
+                <div id="portfolio-tab" class="tab-pane active">
+                    <form id="add-stock-form" class="add-stock-form">
+                        <input type="text" id="stock-symbol" placeholder="ชื่อย่อหุ้น (เช่น KBANK)" required>
+                        <input type="number" id="stock-quantity" placeholder="จำนวนหน่วย" min="1" required>
+                        <button type="submit">เพิ่มหุ้น</button>
+                    </form>
+                    <table class="portfolio-table">
+                        <thead>
+                            <tr>
+                                <th>ชื่อย่อหุ้น</th>
+                                <th>จำนวนหน่วย</th>
+                                <th>ราคาซื้อ/หน่วย</th>
+                                <th>ราคารวมตอนซื้อ</th>
+                                <th>ราคาปัจจุบัน/หน่วย</th>
+                                <th>ราคารวมปัจจุบัน</th>
+                                <th>กำไร/ขาดทุน</th>
+                            </tr>
+                        </thead>
+                        <tbody id="portfolio-body">
+                            </tbody>
+                        <tfoot id="portfolio-footer">
+                            </tfoot>
+                    </table>
+                </div>
+
+                <div id="graph-tab" class="tab-pane">
+                    <div id="graph-controls">
+                        <label for="stock-selector">เลือกหุ้น:</label>
+                        <select id="stock-selector"></select>
+                    </div>
+                    <div id="chart-container">
+                       <canvas id="stock-chart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ===================================================================
+        // CLASS DEFINITIONS (โครงสร้างคลาสตามที่ต้องการ)
+        // ===================================================================
+
+        class Stock {
+            constructor(symbol, quantity, buyPrice) {
+                this.date = new Date();
+                this.symbol = symbol.toUpperCase();
+                this.buyPrice = buyPrice;
+                this.quantity = quantity;
+                this.totalBuy = this.buyPrice * this.quantity;
+                
+                this.currentPrice = buyPrice; // เริ่มต้นให้ราคาปัจจุบันเท่ากับราคาซื้อ
+                this.currentTotal = this.totalBuy;
+                this.net = 0;
+            }
+
+            updatePrice(newPrice) {
+                this.currentPrice = newPrice;
+                this.calculateTotal();
+            }
+
+            calculateTotal() {
+                this.currentTotal = this.currentPrice * this.quantity;
+                this.net = this.currentTotal - this.totalBuy;
+            }
+        }
+
+        class Portfolio {
+            constructor(name) {
+                this.name = name;
+                this.listStock = [];
+                this.totalValue = 0;
+                this.totalPort = 0;
+            }
+
+            addStock(stock) {
+                // ตรวจสอบว่ามีหุ้นตัวนี้ในพอร์ตแล้วหรือยัง
+                const existingStock = this.listStock.find(s => s.symbol === stock.symbol);
+                if (existingStock) {
+                    // ถ้ามีแล้ว ใช้วิธีถัวเฉลี่ยต้นทุน
+                    const totalQuantity = existingStock.quantity + stock.quantity;
+                    const newTotalBuy = existingStock.totalBuy + stock.totalBuy;
+                    existingStock.buyPrice = newTotalBuy / totalQuantity;
+                    existingStock.quantity = totalQuantity;
+                    existingStock.totalBuy = newTotalBuy;
+                } else {
+                    this.listStock.push(stock);
+                }
+                this.calculatePort();
+            }
+
+            deleteStock(symbol) {
+                this.listStock = this.listStock.filter(stock => stock.symbol !== symbol);
+                this.calculatePort();
+            }
+
+            updateAllPrices(allPrices) {
+                this.listStock.forEach(stock => {
+                    if (allPrices[stock.symbol]) {
+                        stock.updatePrice(allPrices[stock.symbol]);
+                    }
+                });
+                this.calculatePort();
+            }
+
+            calculatePort() {
+                this.totalValue = this.listStock.reduce((sum, stock) => sum + stock.currentTotal, 0);
+                const totalBuyValue = this.listStock.reduce((sum, stock) => sum + stock.totalBuy, 0);
+                this.totalPort = this.totalValue - totalBuyValue;
+            }
+        }
+
+        class AutoPortfolioManager {
+            constructor(portfolio, priceProvider) {
+                this.port = portfolio;
+                this.priceProvider = priceProvider;
+                this.chartInstance = null;
+            }
+
+            async fetchRealtimePrices() {
+                const symbols = this.port.listStock.map(stock => stock.symbol);
+                if (symbols.length === 0) return {};
+                return await this.priceProvider.fetchPrices(symbols);
+            }
+
+            async updatePortPrices() {
+                const prices = await this.fetchRealtimePrices();
+                this.port.updateAllPrices(prices);
+            }
+
+            async generateGraph(symbol) {
+                const historicalData = await this.priceProvider.fetchHistoricalData(symbol);
+                if (!historicalData) return;
+
+                const labels = historicalData.map(d => d.date);
+                const dataPoints = historicalData.map(d => d.close);
+                
+                // กำหนดสีของจุดตามราคาเปิด/ปิด
+                const pointColors = historicalData.map(d => d.close >= d.open ? 'rgba(40, 167, 69, 1)' : 'rgba(220, 53, 69, 1)');
+                const pointBorderColors = historicalData.map(d => d.close >= d.open ? 'rgba(40, 167, 69, 1)' : 'rgba(220, 53, 69, 1)');
+
+
+                const ctx = document.getElementById('stock-chart').getContext('2d');
+                if (this.chartInstance) {
+                    this.chartInstance.destroy();
+                }
+
+                this.chartInstance = new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels: labels,
+                        datasets: [{
+                            label: `ราคาปิดของ ${symbol}`,
+                            data: dataPoints,
+                            borderColor: 'rgba(0, 123, 255, 1)',
+                            backgroundColor: 'rgba(0, 123, 255, 0.1)',
+                            fill: true,
+                            tension: 0.1,
+                            pointBackgroundColor: pointColors,
+                            pointBorderColor: pointBorderColors,
+                            pointRadius: 6,
+                            pointHoverRadius: 8
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            tooltip: {
+                                callbacks: {
+                                    // แสดงข้อมูลราคาเปิด/ปิดเมื่อเอาเมาส์ไปชี้
+                                    label: function(context) {
+                                        const index = context.dataIndex;
+                                        const data = historicalData[index];
+                                        return [
+                                            `ปิด: ${data.close.toFixed(2)}`,
+                                            `เปิด: ${data.open.toFixed(2)}`
+                                        ];
+                                    }
+                                }
+                            }
+                        },
+                        scales: {
+                            y: {
+                                beginAtZero: false,
+                                ticks: {
+                                    callback: function(value, index, values) {
+                                        return '฿' + value.toFixed(2);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                });
+            }
+
+            report() {
+                // UIController handles the reporting/rendering
+                UIController.renderPortfolio();
+            }
+        }
+        
+        // ===================================================================
+        // MOCK PRICE PROVIDER (จำลองการดึงข้อมูลราคาจริง)
+        // ===================================================================
+        class MockPriceProvider {
+            constructor() {
+                this.basePrices = {}; // Store base prices to simulate realistic changes
+            }
+        
+            async fetchPrices(symbols) {
+                const prices = {};
+                symbols.forEach(symbol => {
+                    if (!this.basePrices[symbol]) {
+                        // สร้างราคาพื้นฐานแบบสุ่มถ้ายังไม่มี
+                        this.basePrices[symbol] = Math.random() * 200 + 50; 
+                    }
+                    // จำลองการเปลี่ยนแปลงราคาเล็กน้อย
+                    const change = (Math.random() - 0.5) * 2; // -1 to +1
+                    this.basePrices[symbol] += change;
+                    if (this.basePrices[symbol] < 1) this.basePrices[symbol] = 1; // ไม่ให้ราคาติดลบ
+                    prices[symbol] = parseFloat(this.basePrices[symbol].toFixed(2));
+                });
+                return prices;
+            }
+            
+            async getInitialPrice(symbol) {
+                if (!this.basePrices[symbol]) {
+                    this.basePrices[symbol] = Math.random() * 200 + 50;
+                }
+                return parseFloat(this.basePrices[symbol].toFixed(2));
+            }
+
+            async fetchHistoricalData(symbol) {
+                const data = [];
+                let lastClose = this.basePrices[symbol] || Math.random() * 200 + 50;
+
+                for (let i = 6; i >= 0; i--) {
+                    const date = new Date();
+                    date.setDate(date.getDate() - i);
+                    
+                    const open = lastClose * (1 + (Math.random() - 0.5) * 0.05); // เปลี่ยนแปลงไม่เกิน 5%
+                    const close = open * (1 + (Math.random() - 0.5) * 0.05);
+
+                    data.push({
+                        date: date.toLocaleDateString('th-TH'),
+                        open: parseFloat(open.toFixed(2)),
+                        close: parseFloat(close.toFixed(2))
+                    });
+                    lastClose = close;
+                }
+                return data;
+            }
+        }
+
+        // ===================================================================
+        // UI CONTROLLER (จัดการการแสดงผลบนหน้าเว็บ)
+        // ===================================================================
+        const UIController = {
+            init() {
+                // Login
+                document.getElementById('login-form').addEventListener('submit', (e) => {
+                    e.preventDefault();
+                    document.getElementById('login-screen').style.display = 'none';
+                    document.getElementById('app-screen').style.display = 'block';
+                    App.init(); // Start the main app logic after login
+                });
+            },
+            
+            renderPortfolio() {
+                const portfolioBody = document.getElementById('portfolio-body');
+                const portfolioFooter = document.getElementById('portfolio-footer');
+                const portfolio = App.manager.port;
+
+                portfolioBody.innerHTML = ''; // Clear old data
+
+                if (portfolio.listStock.length === 0) {
+                     portfolioBody.innerHTML = '<tr><td colspan="7" style="text-align:center;">ยังไม่มีหุ้นในพอร์ต</td></tr>';
+                }
+
+                portfolio.listStock.forEach(stock => {
+                    const row = document.createElement('tr');
+                    const netClass = stock.net >= 0 ? 'profit' : 'loss';
+                    const netSign = stock.net >= 0 ? '+' : '';
+
+                    row.innerHTML = `
+                        <td><strong>${stock.symbol}</strong></td>
+                        <td>${stock.quantity.toLocaleString()}</td>
+                        <td>${stock.buyPrice.toFixed(2)}</td>
+                        <td>${stock.totalBuy.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
+                        <td>${stock.currentPrice.toFixed(2)}</td>
+                        <td>${stock.currentTotal.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
+                        <td class="${netClass}">${netSign}${stock.net.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
+                    `;
+                    portfolioBody.appendChild(row);
+                });
+
+                // Update footer
+                const totalNetClass = portfolio.totalPort >= 0 ? 'profit' : 'loss';
+                const totalNetSign = portfolio.totalPort >= 0 ? '+' : '';
+                 portfolioFooter.innerHTML = `
+                    <tr>
+                        <td colspan="5" style="text-align: right; font-weight: bold;">รวมทั้งหมด</td>
+                        <td style="font-weight: bold;">${portfolio.totalValue.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
+                        <td class="${totalNetClass}" style="font-weight: bold;">${totalNetSign}${portfolio.totalPort.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
+                    </tr>
+                `;
+            },
+            
+            updateStockSelector() {
+                const selector = document.getElementById('stock-selector');
+                selector.innerHTML = ''; // Clear options
+                const stocks = App.manager.port.listStock;
+                
+                if (stocks.length === 0) {
+                    selector.innerHTML = '<option>ไม่มีหุ้นให้เลือก</option>';
+                    document.getElementById('chart-container').innerHTML = '<div class="no-data">เพิ่มหุ้นในพอร์ตเพื่อดูกราฟ</div>';
+                    if (App.manager.chartInstance) {
+                        App.manager.chartInstance.destroy();
+                        App.manager.chartInstance = null;
+                    }
+
+                } else {
+                     if (document.querySelector('.no-data')) {
+                        document.getElementById('chart-container').innerHTML = '<canvas id="stock-chart"></canvas>';
+                    }
+                    stocks.forEach(stock => {
+                        const option = document.createElement('option');
+                        option.value = stock.symbol;
+                        option.textContent = stock.symbol;
+                        selector.appendChild(option);
+                    });
+                    // Trigger graph generation for the first stock
+                    selector.dispatchEvent(new Event('change'));
+                }
+            }
+        };
+
+        // ===================================================================
+        // MAIN APP LOGIC (ส่วนควบคุมหลัก)
+        // ===================================================================
+        const App = {
+            manager: null,
+            init() {
+                const userPortfolio = new Portfolio("MyPortfolio");
+                const priceProvider = new MockPriceProvider();
+                this.manager = new AutoPortfolioManager(userPortfolio, priceProvider);
+                
+                this.addEventListeners();
+                
+                // เริ่มการอัปเดตราคาอัตโนมัติ
+                setInterval(async () => {
+                    await this.manager.updatePortPrices();
+                    this.manager.report();
+                }, 3000); // อัปเดตทุก 3 วินาที
+
+                UIController.renderPortfolio();
+                UIController.updateStockSelector();
+            },
+            
+            addEventListeners() {
+                // Form for adding new stock
+                document.getElementById('add-stock-form').addEventListener('submit', async (e) => {
+                    e.preventDefault();
+                    const symbolInput = document.getElementById('stock-symbol');
+                    const quantityInput = document.getElementById('stock-quantity');
+                    
+                    const symbol = symbolInput.value.trim().toUpperCase();
+                    const quantity = parseInt(quantityInput.value);
+
+                    if (symbol && quantity > 0) {
+                        // ดึงราคาเริ่มต้นเพื่อใช้เป็นราคาซื้อ
+                        const initialPrice = await this.manager.priceProvider.getInitialPrice(symbol);
+                        const newStock = new Stock(symbol, quantity, initialPrice);
+                        this.manager.port.addStock(newStock);
+                        
+                        // Update UI
+                        this.manager.report();
+                        UIController.updateStockSelector();
+                        
+                        // Clear form
+                        symbolInput.value = '';
+                        quantityInput.value = '';
+                    }
+                });
+
+                // Dropdown for graph
+                document.getElementById('stock-selector').addEventListener('change', (e) => {
+                    const selectedSymbol = e.target.value;
+                    if (selectedSymbol) {
+                        this.manager.generateGraph(selectedSymbol);
+                    }
+                });
+            }
+        };
+
+        // Initialize UI listeners (like login)
+        UIController.init();
+
+        // Function to switch tabs
+        function showTab(tabName) {
+            const tabButtons = document.querySelectorAll('.tab-button');
+            const tabPanes = document.querySelectorAll('.tab-pane');
+
+            tabButtons.forEach(button => {
+                button.classList.remove('active');
+            });
+            tabPanes.forEach(pane => {
+                pane.classList.remove('active');
+            });
+
+            document.querySelector(`.tab-button[onclick="showTab('${tabName}')"]`).classList.add('active');
+            document.getElementById(`${tabName}-tab`).classList.add('active');
+        }
+    </script>
+</body>
+</html>
